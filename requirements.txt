@@ -1,0 +1,14 @@
+ddgs
+requests
+yt-dlp
+python-vlc
+numpy
+simpleaudio
+scipy
+SpeechRecognition
+SoundFile
+sounddevice
+pandas
+rapidfuzz
+openpyxl
+PyAudio

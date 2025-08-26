@@ -1,0 +1,77 @@
+import yt_dlp
+import vlc
+import threading
+
+current_player = None
+is_paused = False
+
+def _fetch_and_play(query):
+    """Fetch best audio stream and start playback progressively."""
+    global current_player, is_paused
+
+    ydl_opts = {
+        'format': 'bestaudio[ext=webm]/bestaudio/best',
+        'quiet': True,
+        'default_search': 'ytsearch1',
+        'noplaylist': True,
+        'nocheckcertificate': True,
+        'buffer_size': 16 * 1024  # Progressive buffering
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            audio_url = info['entries'][0]['url'] if 'entries' in info else info['url']
+            title = info['entries'][0]['title'] if 'entries' in info else info['title']
+
+        print(f"Playing: {title}")
+
+        current_player = vlc.MediaPlayer(audio_url)
+        current_player.play()
+        is_paused = False
+
+    except Exception as e:
+        print(f"Error fetching/playing: {e}")
+
+
+def play_youtube_music(query):
+    """Stop current playback (if any) and start new music instantly."""
+    global current_player
+
+    if current_player and current_player.is_playing():
+        current_player.stop()
+        print("Stopped previous music.")
+
+    threading.Thread(target=_fetch_and_play, args=(query,), daemon=True).start()
+
+
+def stop_music():
+    """Stop current playback completely."""
+    global current_player
+    if current_player and current_player.is_playing():
+        current_player.stop()
+        print("Music stopped.")
+    else:
+        print("No music is currently playing.")
+
+
+def pause_music():
+    """Pause playback if playing."""
+    global current_player, is_paused
+    if current_player and current_player.is_playing():
+        current_player.pause()
+        is_paused = True
+        print("Music paused.")
+    else:
+        print("No active music to pause.")
+
+
+def resume_music():
+    """Resume playback if paused."""
+    global current_player, is_paused
+    if current_player and is_paused:
+        current_player.play()
+        is_paused = False
+        print("Music resumed.")
+    else:
+        print("No paused music to resume.")

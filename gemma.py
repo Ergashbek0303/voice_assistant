@@ -429,7 +429,7 @@ At each turn, if you decide to invoke any of the function(s), it should be wrapp
 - If the user is asking for news, facts, general information, or something that can be found on the internet – use the `search` function. in answers also provide more information.
 - If the user is asking for the current time use `get_time` function.
 - If the user is asking for the current date use `get_date` function. sana haqida so'rasa `get_date` funksiyasidan foydalaning.
-- If user asking to play music use `play_youtube_music` function. also you can use it for podcasts or audiobooks. 
+- If user asking to play something use `play_youtube_music` function. also you can use it for podcasts or audiobooks. 
 - If user asking to stop(to'xtat), pause or resume music use `stop_music`, `pause_music`, or `resume_music` functions.the commands are: to'xtat, pauza qil, davom ettir.
 - When music is playing and user asking something else first stop the music using `stop_music` function. send only music name and artist name to play music.
 - If the user is asking information about Cyber security center (Kiber xavfsizlik markazi), use the `get_excel_context` function to fetch relevant data.
@@ -571,6 +571,7 @@ def background_wake_word_listener():
     while True:
         try:
             if detect_wake_word_immediate(timeout=4):
+                pause_music()
                 wake_word_detected.set()
 
                 with current_tts_playback_lock:
@@ -603,6 +604,30 @@ def agent_loop(prompt_with_history: str):
             # No more tool calls → final answer
             return llm_output
 
+def is_exit_command(user_input):
+    """Check if user wants to exit the conversation (not just stop music)"""
+    exit_phrases = [
+        "hayr", "xayr", "salomat qoling", 
+        "bas", "tugadi", "chiqish",
+        "yetdi", "tamom", "tugatish"
+    ]
+    
+    # Check for direct exit phrases
+    for phrase in exit_phrases:
+        if phrase in user_input.lower():
+            return True
+    
+    # Check for "to'xta" only if it's NOT about music
+    if "to'xta" in user_input.lower():
+        music_related_words = ["musiqa", "qo'shiq", "music", "audio", "ijro"]
+        # If "to'xta" is used with music-related words, it's a music command, not exit
+        if any(word in user_input.lower() for word in music_related_words):
+            return False
+        # If "to'xta" is alone or with non-music context, it's an exit command
+        return True
+    
+    return False
+
 
 if __name__ == "__main__":
     # Start background listener
@@ -618,6 +643,7 @@ if __name__ == "__main__":
 
     play_beep_fast()
     play_beep_fast()
+
 
     while True:
         try:
@@ -646,15 +672,11 @@ if __name__ == "__main__":
                 continue
 
             # Special exit command
-            end_commands = ["hayr", "xayr", "salomat qoling",
-                            "to'xta", "bas", "tugadi", "chiqish"]
-            if any(end_word in user_input.lower() for end_word in end_commands):
+            if is_exit_command(user_input):
                 speak_text_interruptible("Xayr! Yaxshi kun o'tkazing!")
-                logger.info(
-                    "💤 User ended conversation. Waiting for wake word.")
+                logger.info("💤 User ended conversation. Waiting for wake word.")
                 chat_state.clear()  # Clear history on exit
                 continue
-
             logger.info("🤖 Getting response from Gemma...")
 
             thinking_phrases = ["Bir daqiqa...",

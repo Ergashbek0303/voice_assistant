@@ -22,6 +22,8 @@ import sounddevice as sd
 import logging
 
 # --- Chat History State ---
+
+
 class ChatState:
     """Manages the conversation history for the Gemma model."""
     __START_TURN_USER__ = "<start_of_turn>user\n"
@@ -38,7 +40,8 @@ class ChatState:
 
     def add_model(self, msg):
         """Adds a model's response to the history."""
-        self.history.append(self.__START_TURN_MODEL__ + msg + self.__END_TURN__)
+        self.history.append(self.__START_TURN_MODEL__ +
+                            msg + self.__END_TURN__)
 
     def get_prompt(self):
         """Constructs the full prompt with history for the model."""
@@ -50,6 +53,7 @@ class ChatState:
         self.history.clear()
         logger.info("🧹 Chat history cleared.")
 
+
 # -------------------
 # Local LLM API settings
 # -------------------
@@ -57,7 +61,8 @@ API_URL = "http://10.10.0.86:11434/api/generate"
 MODEL = "gemma3:27b-it-qat"
 
 # --- Voice Assistant Integration ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # API Configuration from final2.py
@@ -78,6 +83,7 @@ session_cache = requests.Session()
 # --- Music Tools (from music_code.txt, non-blocking) ---
 current_player = None
 is_paused = False
+
 
 def _fetch_and_play(query):
     """Fetch best audio stream and start playback progressively."""
@@ -105,14 +111,17 @@ def _fetch_and_play(query):
     except Exception as e:
         logger.error(f"Error fetching/playing music: {e}")
 
+
 def play_youtube_music(query: str):
     """Stop current playback (if any) and start new music instantly."""
     global current_player
     if current_player and current_player.is_playing():
         current_player.stop()
         logger.info("Stopped previous music.")
-    threading.Thread(target=_fetch_and_play, args=(query,), daemon=True).start()
+    threading.Thread(target=_fetch_and_play,
+                     args=(query,), daemon=True).start()
     return f"{query} nomli musiqa ijro etilmoqda."
+
 
 def stop_music():
     """Stop current playback completely."""
@@ -125,6 +134,7 @@ def stop_music():
         logger.info("No music is currently playing.")
         return "Hech qanday musiqa ijro etilmayapti."
 
+
 def pause_music():
     """Pause playback if playing."""
     global current_player, is_paused
@@ -136,6 +146,7 @@ def pause_music():
     else:
         logger.info("No active music to pause.")
         return "Pauza qilish uchun musiqa yo'q."
+
 
 def resume_music():
     """Resume playback if paused."""
@@ -150,6 +161,8 @@ def resume_music():
         return "Davom ettirish uchun musiqa yo'q."
 
 # --- General Tools ---
+
+
 def get_time() -> str:
     """Return the current local time as HH:MM format"""
     now = datetime.now()
@@ -178,6 +191,7 @@ def search(query: str) -> str:
 
 # --- Currency Tools ---
 
+
 def get_exchange_rate(currency: str, new_currency: str) -> float:
     """Fetch latest exchange rate"""
     url = f"https://api.exchangerate-api.com/v4/latest/{currency}"
@@ -194,8 +208,10 @@ def convert(amount: float, currency: str, new_currency: str) -> float:
             f"Exchange rate not found for {currency} to {new_currency}")
     return amount * rate
 
+
 # --- Code Sandbox Tool ---
 SANDBOX_GLOBALS = {}
+
 
 def run_in_sandbox(code: str) -> str:
     """
@@ -213,53 +229,57 @@ def run_in_sandbox(code: str) -> str:
         return f"❌ Error: {e}"
 
 # --- Excel Search Tool (for testing) ---
-def test_excel_search(query:str):
+
+
+def test_excel_search(query: str):
     from tools.file_search import get_excel_context, debug_excel_content
-    
+
     print("=== DEBUGGING EXCEL FILE ===")
     debug_excel_content()
-    
+
     print("\n=== TESTING SEARCH ===")
     result = get_excel_context(query)
     print(f"Result: {result}")
 
 # --- Voice I/O Functions (from final2.py) ---
 
+
 def convert_audio_format(input_path: str) -> str:
     """Convert audio to proper WAV format for STT API"""
     try:
         data, samplerate = sf.read(input_path)
         output_path = input_path.replace('.wav', '_converted.wav')
-        
+
         if len(data.shape) > 1:
             data = np.mean(data, axis=1)
-        
+
         target_samplerate = 16000
         if samplerate != target_samplerate:
             num_samples = int(len(data) * target_samplerate / samplerate)
             data = signal.resample(data, num_samples)
             samplerate = target_samplerate
-        
+
         if data.dtype != np.int16:
             data = (data * 32767).astype(np.int16)
-        
+
         sf.write(output_path, data, samplerate, format='WAV', subtype='PCM_16')
         logger.info(f"Audio converted: {input_path} -> {output_path}")
         return output_path
-        
+
     except Exception as e:
         logger.error(f"Audio conversion error: {e}")
         return input_path
 
+
 def speak_text_interruptible(text, is_thinking_phrase=False):
     """TTS with immediate interrupt capability - UZBEK ONLY"""
     global current_tts_playback, audio_interrupt_flag
-    
+
     if not text or not text.strip():
         return
-        
+
     audio_interrupt_flag.clear()
-    
+
     try:
         headers = {
             "Authorization": "Bearer a3b2sr4e5g1a",
@@ -269,16 +289,18 @@ def speak_text_interruptible(text, is_thinking_phrase=False):
         speed = 1.2 if is_thinking_phrase else 1.0
         data = {"text": text, "gender": "male", "speed": speed}
 
-        resp = session_cache.post(TTS_API_URL, headers=headers, data=data, timeout=8)
+        resp = session_cache.post(
+            TTS_API_URL, headers=headers, data=data, timeout=8)
 
         if resp.status_code == 200:
             pcm_data = np.frombuffer(resp.content, dtype=np.int16)
             SAMPLE_RATE = 24000
-            
+
             if not audio_interrupt_flag.is_set():
                 with current_tts_playback_lock:
-                    current_tts_playback = sd.play(pcm_data, samplerate=SAMPLE_RATE)
-                
+                    current_tts_playback = sd.play(
+                        pcm_data, samplerate=SAMPLE_RATE)
+
                 # This loop allows interruption
                 while sd.get_stream().active:
                     if audio_interrupt_flag.is_set():
@@ -286,14 +308,15 @@ def speak_text_interruptible(text, is_thinking_phrase=False):
                         logger.info("🛑 Speech interrupted.")
                         break
                     time.sleep(0.05)
-                
+
                 with current_tts_playback_lock:
                     current_tts_playback = None
-                    
+
     except Exception as e:
         logger.error(f"TTS error: {e}")
         with current_tts_playback_lock:
             current_tts_playback = None
+
 
 def transcribe_audio_fast(file_path: str) -> str:
     """Faster audio transcription"""
@@ -301,24 +324,28 @@ def transcribe_audio_fast(file_path: str) -> str:
         if not os.path.exists(file_path) or os.path.getsize(file_path) < 1000:
             logger.error(f"Audio file invalid: {file_path}")
             return ""
-        
+
         logger.info(f"Transcribing: {file_path}")
         transcribe_path = convert_audio_format(file_path)
-        
+
         with open(transcribe_path, "rb") as f:
-            files = {"file": (os.path.basename(transcribe_path), f, "audio/wav")}
+            files = {"file": (os.path.basename(
+                transcribe_path), f, "audio/wav")}
             response = session_cache.post(STT_API_URL, files=files, timeout=12)
 
         if response.ok:
             data = response.json()
-            transcript = data.get("result", {}).get("transcript", "") or data.get("transcript", "") or data.get("text", "")
+            transcript = data.get("result", {}).get("transcript", "") or data.get(
+                "transcript", "") or data.get("text", "")
             return transcript.strip()
         else:
-            logger.error(f"STT error: {response.status_code} - {response.text}")
+            logger.error(
+                f"STT error: {response.status_code} - {response.text}")
             return ""
     except Exception as e:
         logger.error(f"STT exception: {e}")
         return ""
+
 
 def detect_wake_word_immediate(timeout=3) -> bool:
     """Enhanced wake word detection"""
@@ -328,8 +355,9 @@ def detect_wake_word_immediate(timeout=3) -> bool:
             recognizer.energy_threshold = 3000
             recognizer.dynamic_energy_threshold = True
             recognizer.adjust_for_ambient_noise(source, duration=0.2)
-            audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=4)
-        text = recognizer.recognize_google(audio, language="uz-UZ").lower()
+            audio = recognizer.listen(
+                source, timeout=timeout, phrase_time_limit=4)
+        text = recognizer.recognize_google(audio, language="en-EN").lower()
         logger.info(f"👂 Heard: {text}")
         return any(wake_word in text for wake_word in WAKE_WORDS)
     except (sr.WaitTimeoutError, sr.UnknownValueError):
@@ -338,31 +366,34 @@ def detect_wake_word_immediate(timeout=3) -> bool:
         logger.error(f"Wake word detection error: {e}")
         return False
 
+
 def record_audio_fast(filename="input.wav", timeout=7, phrase_time_limit=10):
     """
     Records audio from the microphone using VAD (Voice Activity Detection).
     It starts recording upon detecting speech and stops after a period of silence.
     """
     recognizer = sr.Recognizer()
-    
+
     try:
         with sr.Microphone(sample_rate=16000) as source:
             # Adjust for ambient noise to improve accuracy
             recognizer.energy_threshold = 3000
             recognizer.dynamic_energy_threshold = True
             recognizer.adjust_for_ambient_noise(source, duration=0.5)
-            
-            logger.info("🎤 Listening for your command (will stop after silence)...")
-            
+
+            logger.info(
+                "🎤 Listening for your command (will stop after silence)...")
+
             # Listen for the first phrase and stop on silence
-            audio_data = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-            
+            audio_data = recognizer.listen(
+                source, timeout=timeout, phrase_time_limit=phrase_time_limit)
+
             logger.info("...Processing your command.")
-            
+
             # Save the recorded audio to a file
             with open(filename, "wb") as f:
                 f.write(audio_data.get_wav_data())
-            
+
             logger.info(f"🎙️ Saved recording: {filename}")
             return filename
     except sr.WaitTimeoutError:
@@ -371,6 +402,7 @@ def record_audio_fast(filename="input.wav", timeout=7, phrase_time_limit=10):
     except Exception as e:
         logger.error(f"Recording error with VAD: {e}")
         return None
+
 
 def play_beep_fast():
     """Quick notification beep"""
@@ -387,19 +419,21 @@ def play_beep_fast():
     except Exception as e:
         logger.error(f"Beep error: {e}")
 
+
 # -------------------
 # Prompt with tool instructions
 # -------------------
-instruction_prompt_with_function_calling = '''you are uzbek voice assistant. answer the questions in uzbek language not including your thoughts .
+instruction_prompt_with_function_calling = '''you are uzbek voice assistant. answer the questions in uzbek language not including your thoughts. write numbers using only words. masalan 25 ni yigirma besh deb yoz. answer only using words. '*' ni ishlatma.
 At each turn, if you decide to invoke any of the function(s), it should be wrapped with ```tool_code```. The python methods described below are imported and available, you can only use defined methods. The generated code should be readable and efficient. The response to a method will be wrapped in ```tool_output``` use it to call more tools or generate a helpful, friendly response. When using a ```tool_call``` think step by step why and how it should be used.
 - If the user is asking about currency, use the `convert` or `get_exchange_rate` functions. 
 - If the user is asking for news, facts, general information, or something that can be found on the internet – use the `search` function. in answers also provide more information.
 - If the user is asking for the current time use `get_time` function.
 - If the user is asking for the current date use `get_date` function. sana haqida so'rasa `get_date` funksiyasidan foydalaning.
-- If user asking to play music use `play_youtube_music` function.
-- If user asking to stop, pause or resume music use `stop_music`, `pause_music`, or `resume_music` functions.
+- If user asking to play music use `play_youtube_music` function. also you can use it for podcasts or audiobooks. 
+- If user asking to stop(to'xtat), pause or resume music use `stop_music`, `pause_music`, or `resume_music` functions.the commands are: to'xtat, pauza qil, davom ettir.
 - When music is playing and user asking something else first stop the music using `stop_music` function. send only music name and artist name to play music.
 - If the user is asking information about Cyber security center (Kiber xavfsizlik markazi), use the `get_excel_context` function to fetch relevant data.
+
 - If no tool matches, use the run_in_sandbox tool.
 - When using run_in_sandbox:
   - Write Python code that achieves the user request.
@@ -483,7 +517,8 @@ def extract_tool_call(text: str):
     """Extract and execute one or multiple tool_code blocks from LLM output"""
     # Normalizatsiya: python bloklarini ham tool_code sifatida qabul qilamiz
     text = text.replace("```python", "```tool_code")
-    text = text.replace("```tool_output```", "")  # keraksiz bo‘sh bloklarni olib tashlash
+    # keraksiz bo‘sh bloklarni olib tashlash
+    text = text.replace("```tool_output```", "")
 
     # Barcha tool_code bloklarini ajratib olish
     pattern = r"```tool_code\s*\n(.*?)\n```"
@@ -518,7 +553,8 @@ def extract_tool_call(text: str):
             outputs.append(str(result))
         except Exception:
             # Agar eval ishlamasa, exec orqali bajarish
-            import io, contextlib
+            import io
+            import contextlib
             buffer = io.StringIO()
             with contextlib.redirect_stdout(buffer):
                 exec(code, globals(), locals())
@@ -531,12 +567,12 @@ def extract_tool_call(text: str):
 def background_wake_word_listener():
     """Background wake word detection"""
     global wake_word_detected, current_tts_playback
-    
+
     while True:
         try:
             if detect_wake_word_immediate(timeout=4):
                 wake_word_detected.set()
-                
+
                 with current_tts_playback_lock:
                     if current_tts_playback is not None:
                         try:
@@ -549,6 +585,7 @@ def background_wake_word_listener():
         except Exception as e:
             logger.error(f"Background listener error: {e}")
             time.sleep(0.5)
+
 
 def agent_loop(prompt_with_history: str):
     """Processes a single turn, using history, and handles tool calls."""
@@ -569,37 +606,39 @@ def agent_loop(prompt_with_history: str):
 
 if __name__ == "__main__":
     # Start background listener
-    listener_thread = threading.Thread(target=background_wake_word_listener, daemon=True)
+    listener_thread = threading.Thread(
+        target=background_wake_word_listener, daemon=True)
     listener_thread.start()
-    
+
     # Initialize chat state with the system prompt
     chat_state = ChatState(system=instruction_prompt_with_function_calling)
-    
+
     logger.info("🚀 O'zbek Ovozli Yordamchi (Gemma) Ishga Tushdi!")
     logger.info("Uyg'otish so'zini kuting: " + ", ".join(WAKE_WORDS))
-    
+
     play_beep_fast()
     play_beep_fast()
 
     while True:
         try:
-            # Wait for wake word
-            wake_word_detected.wait()
-            wake_word_detected.clear()
-            
-            logger.info("✅ Wake word detected - starting conversation.")
-            play_beep_fast()
-            
-            # Record user input
-            audio_path = record_audio_fast()
-            if not audio_path:
-                continue
+            # # Wait for wake word
+            # wake_word_detected.wait()
+            # wake_word_detected.clear()
 
-            play_beep_fast()
-            
-            # Transcribe user input
-            user_input = transcribe_audio_fast(audio_path)
-            logger.info(f"👤 You said: '{user_input}'")
+            # logger.info("✅ Wake word detected - starting conversation.")
+            # play_beep_fast()
+
+            # # Record user input
+            # audio_path = record_audio_fast()
+            # if not audio_path:
+            #     continue
+
+            # play_beep_fast()
+
+            # # Transcribe user input
+            # user_input = transcribe_audio_fast(audio_path)
+            # logger.info(f"👤 You said: '{user_input}'")
+            user_input = input("Siz: ")
 
             if not user_input.strip():
                 logger.warning("❌ Empty transcription, please try again.")
@@ -607,17 +646,21 @@ if __name__ == "__main__":
                 continue
 
             # Special exit command
-            end_commands = ["hayr", "xayr", "salomat qoling", "to'xta", "bas", "tugadi", "chiqish"]
+            end_commands = ["hayr", "xayr", "salomat qoling",
+                            "to'xta", "bas", "tugadi", "chiqish"]
             if any(end_word in user_input.lower() for end_word in end_commands):
                 speak_text_interruptible("Xayr! Yaxshi kun o'tkazing!")
-                logger.info("💤 User ended conversation. Waiting for wake word.")
+                logger.info(
+                    "💤 User ended conversation. Waiting for wake word.")
                 chat_state.clear()  # Clear history on exit
                 continue
 
             logger.info("🤖 Getting response from Gemma...")
-            
-            thinking_phrases = ["Bir daqiqa...", "O'ylab ko'ray...", "Javob tayyorlanmoqda..."]
-            thinking_thread = threading.Thread(target=speak_text_interruptible, args=(random.choice(thinking_phrases), True), daemon=True)
+
+            thinking_phrases = ["Bir daqiqa...",
+                                "O'ylab ko'ray...", "Javob tayyorlanmoqda..."]
+            thinking_thread = threading.Thread(target=speak_text_interruptible, args=(
+                random.choice(thinking_phrases), True), daemon=True)
             thinking_thread.start()
 
             # Add user message to history and get the full prompt for the agent
@@ -625,30 +668,30 @@ if __name__ == "__main__":
             prompt = chat_state.get_prompt()
 
             answer = agent_loop(prompt)
-            
+
             audio_interrupt_flag.set()
             time.sleep(0.2)
-            
+
             # Add the model's final answer to the history for the next turn
             chat_state.add_model(answer)
-            
+
             logger.info(f"✅ Final Answer: {answer}")
-            
+
             if answer:
                 speak_text_interruptible(answer)
-            else:
-                speak_text_interruptible("Kechirasiz, javob topa olmadim.")
+            # else:
+            #     speak_text_interruptible("Kechirasiz, javob topa olmadim.")
 
-            if os.path.exists(audio_path): os.remove(audio_path)
-            converted_path = audio_path.replace('.wav', '_converted.wav')
-            if os.path.exists(converted_path): os.remove(converted_path)
+            # if os.path.exists(audio_path): os.remove(audio_path)
+            # converted_path = audio_path.replace('.wav', '_converted.wav')
+            # if os.path.exists(converted_path): os.remove(converted_path)
 
             logger.info("💤 Task complete. Waiting for next wake word.")
 
         except KeyboardInterrupt:
             logger.info("🛑 Shutting down voice assistant...")
             break
-            
+
         except Exception as e:
             logger.error(f"Main loop error: {e}", exc_info=True)
             speak_text_interruptible("Kechirasiz, nimadir xato ketdi.")
